@@ -54,10 +54,16 @@ def connect_to_wifi2(ssid, password):
         status = wlan.ifconfig()
         print( 'ip = ' + status[0] )
 
+def save_string_to_file(file_path: str, content: str) -> None:
+    with open(file_path, 'a') as file:  # Open the file in append mode
+        file.write(content + '\n')  # Add a newline for separation
+
 # Connect to Wi-Fi
 def connect_to_wifi(ssid, password):
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
+    ip_config = ('192.168.0.170','255.255.255.0','192.168.0.1','8.8.8.8')
+    wlan.ifconfig(ip_config)
     wlan.connect(ssid, password)     
     while not wlan.isconnected():
         print("Connecting to Wi-Fi...")
@@ -67,22 +73,18 @@ def connect_to_wifi(ssid, password):
     led01.value(1)
 def listening_request(data):
     addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-
     s = socket.socket()
     s.bind(addr)
     s.listen(1)
-
     print('listening on', addr)
-
-# Listen for connections
     while True:
         try:
             cl, addr = s.accept()
+            data.measure()
             print('client connected from', addr)
             request = cl.recv(1024)
             print(request)
             response = html % (data.temperature(),data.humidity())
-
             cl.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
             cl.send(response)
             cl.close()
@@ -91,6 +93,14 @@ def listening_request(data):
             print("Error:",e)
             cl.close()
             print('connection closed')
-
-connect_to_wifi('Hacienda','739402020')
-listening_request(senzor_data)
+        finally:
+            cl.close()
+try:
+    connect_to_wifi('Hacienda','739402020')
+    listening_request(senzor_data)
+except KeyboardInterrupt:
+    print("Script stopped by user.")
+except Exception as ex:
+    save_string_to_file('log.txt',ex)
+finally:
+    led01.value(0)
