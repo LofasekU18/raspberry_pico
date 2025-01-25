@@ -1,106 +1,145 @@
-import uasyncio as asyncio
-from machine import Pin, ADC
+from machine import Pin
 import time
 import network
 import socket
 import dht
+import os
+import my_func
 
-# Configure the sensor (e.g., analog sensor on ADC pin)
-senzor_data = dht.DHT11(machine.Pin(28))
-senzor_data.measure()
+
+SSID = 'Hacienda'
+PASSWORD = '739402020'
+senzor01 = dht.DHT11(machine.Pin(28))
 led01 = Pin(15,Pin.OUT)
+button01 = machine.Pin(13, machine.Pin.IN,machine.Pin.PULL_UP)
+count = 0
+socket01 = socket.socket()
+interval = 10 * 10 * 1000
 html = """<!DOCTYPE html>
 <html>
     <head>
         <style>
-            h1, p {
-                font-size: 30px;
+            h1, p
+                {
+                font-size: 50px;
                 color: #333;
-                text-align: center;  /* Center the text */
-            }
+                text-align: center; 
+                }
+            table
+                {
+                margin-left: auto;
+                margin-right: auto;
+                }
+            th, td
+                {
+                border: 1px solid #ddd;
+                padding: 10px;
+                }
         </style>
         <title>Pico W</title>
     </head>
     <body>
         <h1>Pico W</h1>
-        <p>Temperature: %sC<br>Humidity: %d%%</p>
+        <table>
+        <thead>
+            <tr>
+                <th>Teplota</th>
+                <th>Vlhkost</th>
+                <th>Cas</th>
+            </tr>
+        </thead>
+        <tbody>
+            %s
+        </tbody>
+        </table>
     </body>
+    <script>
+        console.log("Hello");
+    </script>
 </html>
 """
-# Example: Sensor connected to GPIO26 (ADC0)
-def connect_to_wifi2(ssid, password):
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    wlan.connect(ssid, password)
-    max_wait = 10
-    while max_wait > 0:
-        if wlan.status() < 0 or wlan.status() >= 3:
-            break
-        max_wait -= 1
-        print('waiting for connection...')
-        time.sleep(1)
 
-        if wlan.status() != 3:
-            raise RuntimeError('network connection failed')
-        else:
-            print('connected')
-            ip = "192.168.0.170"  # Set the desired static IP
-            subnet = "255.255.255.0"  # Subnet mask
-            gateway = "192.168.0.1"  # Default gateway (usually the router's IP)
-            dns = "8.8.8.8"  # DNS server (Google DNS in this case)
-
-# Set the network configuration (static IP, subnet, gateway, DNS)
-        wlan.ifconfig((ip, subnet, gateway, dns))
-        status = wlan.ifconfig()
-        print( 'ip = ' + status[0] )
-
-def save_string_to_file(file_path: str, content: str) -> None:
-    with open(file_path, 'a') as file:  # Open the file in append mode
-        file.write(content + '\n')  # Add a newline for separation
-
-# Connect to Wi-Fi
-def connect_to_wifi(ssid, password):
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    ip_config = ('192.168.0.170','255.255.255.0','192.168.0.1','8.8.8.8')
-    wlan.ifconfig(ip_config)
-    wlan.connect(ssid, password)     
-    while not wlan.isconnected():
-        print("Connecting to Wi-Fi...")
-        time.sleep(1)
-    
-    print("Connected to Wi-Fi:", wlan.ifconfig())
-    led01.value(1)
-def listening_request(data):
-    addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-    s = socket.socket()
-    s.bind(addr)
-    s.listen(1)
-    print('listening on', addr)
+def main():
+    measured_history = my_func.load_from_file("measure.txt")
+    if my_func.press_button(button01):
+                print("3")
+                my_func.delete_file("measure.txt")
+                measured_history = "<p>Vymazano</p>"
+                print("Deleted")
+                time.sleep(3)
+    start_time = time.ticks_ms()
+    my_func.connect_to_wifi(SSID,PASSWORD,led01)
+    my_func.listening_request2(socket01)
     while True:
         try:
-            cl, addr = s.accept()
-            data.measure()
-            print('client connected from', addr)
-            request = cl.recv(1024)
-            print(request)
-            response = html % (data.temperature(),data.humidity())
-            cl.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
-            cl.send(response)
+            print("1")
+            current_time = time.ticks_ms()
+            if (time.ticks_diff(current_time, start_time) >= interval):
+                print("2")
+                senzor01.measure()
+                time.sleep(3)
+                my_func.save_to_file("measure.txt",f"<tr><td>{senzor01.temperature()} C</td><td>{senzor01.humidity()} %</td><td>{my_func.get_current_time()}</td></tr>")
+                time.sleep(3)
+                measured_history = my_func.load_from_file("measure.txt")
+                start_time = time.ticks_ms()
+                print("Add")
+            else:
+                print("4")
+                cl, addr = socket01.accept()
+                print("5")
+                print('client connected from', addr)
+                request = cl.recv(1024)
+                print(request)
+                response = html % measured_history
+                cl.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
+                cl.send(response)
+                cl.close()
+        except OSError:
+            continue
+        except Exception as e:
+            print(e)
+            my_func.state_indicator(led01, 5)
             cl.close()
+            
+main()
+            
 
-        except OSError as e:
-            print("Error:",e)
-            cl.close()
-            print('connection closed')
-        finally:
-            cl.close()
-try:
-    connect_to_wifi('Hacienda','739402020')
-    listening_request(senzor_data)
-except KeyboardInterrupt:
-    print("Script stopped by user.")
-except Exception as ex:
-    save_string_to_file('log.txt',ex)
-finally:
-    led01.value(0)
+# Get the current time in milliseconds
+
+#senzor01.measure()
+
+#my_func.delete_file("test.txt")
+
+
+#while True:
+ #   current_time = time.ticks_ms()
+  #  if time.ticks_diff(current_time, start_time) >= interval:
+   #     print("1 minutes have passed!")
+    #    start_time = time.ticks_ms()  # Reset timer
+   # time.sleep(1)  # Sleep to avoid CPU overuse (not required but useful)
+
+
+#led01.value(0)
+#while True:
+#    if my_func.press_button(button01):
+#        print("Zmacknuto")
+#        my_func.state_indicator(led01,5)
+#    else:
+#        print(time.ticks_ms()) 
+#        time.sleep(1)
+    
+#led01.value(0)
+#state_indicator(led01,5)           
+#extensions.test_button(count, button01)           
+#my_func.connect_to_wifi(SSID,PASSWORD,led01)
+#my_func.listening_request(socket,html,senzor)
+#except Exception as e:
+   # print('Konec sam',e,e.args,type(e))
+    #listening_request(senzor)
+#except BaseException:
+ #   print('Konec uzivatel')
+#finally:
+ #   led01.value(0)
+  #  s.close()
+   # print('Finally')
+    #machine.soft_reset()
