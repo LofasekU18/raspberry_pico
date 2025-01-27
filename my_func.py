@@ -4,10 +4,8 @@ import socket
 import dht
 import os
 
-# Status led blinking:
-# 3times = problem with wifi connection
-# 5times = problem with response
-def state_indicator(led_id, count_blinking):
+
+def state_indicator(led_id, count_blinking, speed):
     count = 0
     led_initial_state = led_id.value()
     led_id.value(0)
@@ -17,13 +15,13 @@ def state_indicator(led_id, count_blinking):
             count += 1
         else:
             led_id.value(0)
-        time.sleep(0.75)
+        time.sleep(speed)
     led_id.value(led_initial_state)
 
 #Debug    
 def do_measure(data): 
     data.measure()
-    print("Merim");
+    print("Merim")
 
 def connect_to_wifi(ssid, password, led_id):
     count_connections = 0
@@ -66,25 +64,25 @@ def listening_request(socket, html, senzor):
             cl.send(response)
             cl.close()
         except Exception:
-            state_indicator(led_id, 5)
+            state_indicator(led_id, 5, 0.75)
             cl.close()
             continue
             
 def press_button(button):    
     if not button.value():
-        return True# Active LOW button
+        return True
     
 def save_to_file(filename, text):
     try:
-        with open(filename, 'a') as file:  # Open in append mode
-            file.write(text + '\n')  # Add a newline after each entry
+        with open(filename, 'a') as file:
+            file.write(text + '\n')
         print(f"Text successfully saved to {filename}")
     except Exception as e:
         print(f"Error saving to file: {e}")
 
 def load_from_file(filename):
     try:
-        with open(filename, 'r') as file:  # Open in read mode
+        with open(filename, 'r') as file: 
             content = file.read()
         return content
     except OSError:

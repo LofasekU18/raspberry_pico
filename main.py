@@ -7,14 +7,13 @@ import os
 import my_func
 
 
-SSID = 'Hacienda'
-PASSWORD = '739402020'
+SSID = ''
+PASSWORD = ''
 senzor01 = dht.DHT11(machine.Pin(28))
 led01 = Pin(15,Pin.OUT)
 button01 = machine.Pin(13, machine.Pin.IN,machine.Pin.PULL_UP)
-count = 0
 socket01 = socket.socket()
-interval = 10 * 10 * 1000
+interval = 60 * 60 * 1000
 html = """<!DOCTYPE html>
 <html>
     <head>
@@ -64,9 +63,12 @@ def main():
     if my_func.press_button(button01):
                 print("3")
                 my_func.delete_file("measure.txt")
-                measured_history = "<p>Vymazano</p>"
+                senzor01.measure()
+                measured_history = f"<tr><td>{senzor01.temperature()} C</td><td>{senzor01.humidity()} %</td><td>{my_func.get_current_time()}</td></tr>"
+                my_func.state_indicator(led01,3,0.2)
                 print("Deleted")
-                time.sleep(3)
+                time.sleep(5)
+                
     start_time = time.ticks_ms()
     my_func.connect_to_wifi(SSID,PASSWORD,led01)
     my_func.listening_request2(socket01)
@@ -82,7 +84,6 @@ def main():
                 time.sleep(3)
                 measured_history = my_func.load_from_file("measure.txt")
                 start_time = time.ticks_ms()
-                print("Add")
             else:
                 print("4")
                 cl, addr = socket01.accept()
@@ -102,44 +103,3 @@ def main():
             cl.close()
             
 main()
-            
-
-# Get the current time in milliseconds
-
-#senzor01.measure()
-
-#my_func.delete_file("test.txt")
-
-
-#while True:
- #   current_time = time.ticks_ms()
-  #  if time.ticks_diff(current_time, start_time) >= interval:
-   #     print("1 minutes have passed!")
-    #    start_time = time.ticks_ms()  # Reset timer
-   # time.sleep(1)  # Sleep to avoid CPU overuse (not required but useful)
-
-
-#led01.value(0)
-#while True:
-#    if my_func.press_button(button01):
-#        print("Zmacknuto")
-#        my_func.state_indicator(led01,5)
-#    else:
-#        print(time.ticks_ms()) 
-#        time.sleep(1)
-    
-#led01.value(0)
-#state_indicator(led01,5)           
-#extensions.test_button(count, button01)           
-#my_func.connect_to_wifi(SSID,PASSWORD,led01)
-#my_func.listening_request(socket,html,senzor)
-#except Exception as e:
-   # print('Konec sam',e,e.args,type(e))
-    #listening_request(senzor)
-#except BaseException:
- #   print('Konec uzivatel')
-#finally:
- #   led01.value(0)
-  #  s.close()
-   # print('Finally')
-    #machine.soft_reset()
