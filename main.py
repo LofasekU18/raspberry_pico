@@ -59,19 +59,19 @@ html = """<!DOCTYPE html>
 """
 
 def main():
-    measured_history = my_func.load_from_file("measure.txt")
+    
     if my_func.press_button(button01):
                 print("3")
                 my_func.delete_file("measure.txt")
                 senzor01.measure()
                 measured_history = f"<tr><td>{senzor01.temperature()} C</td><td>{senzor01.humidity()} %</td><td>{my_func.get_current_time()}</td></tr>"
                 my_func.state_indicator(led01,3,0.2)
-                print("Deleted")
                 time.sleep(5)
-                
-    start_time = time.ticks_ms()
+    else:
+        measured_history = my_func.load_from_file("measure.txt")         
     my_func.connect_to_wifi(SSID,PASSWORD,led01)
     my_func.listening_request2(socket01)
+    start_time = time.ticks_ms()
     while True:
         try:
             print("1")
